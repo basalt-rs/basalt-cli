@@ -1,0 +1,10 @@
+[package]
+name = "basalt-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.95"
+clap = { version = "4.5.27", features = ["derive"] }
+bedrock = { git = "http://github.com/basalt-rs/bedrock.git", features = ["tokio"] }
+tokio = { version = "1.43.0", features = ["full"] }
