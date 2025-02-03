@@ -14,6 +14,8 @@ FROM fedora:rawhide as setup
 
 WORKDIR /setup
 
+RUN echo "{{ install.sh }}" > setup.sh
+
 COPY setup.sh .
 
 RUN chmod +x ./setup.sh
