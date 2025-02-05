@@ -9,6 +9,8 @@ use tokio::io::AsyncWriteExt;
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const DOCKER_SEP: &str = "\\\n";
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
+const INIT_SRC: &str = include_str!("../data/init.sh");
+const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
 
 lazy_static! {
     static ref tmpl: tera::Tera = {
@@ -17,6 +19,10 @@ lazy_static! {
             .expect("Failed to register docker source template");
         t.add_raw_template("install.sh", INSTALL_SRC)
             .expect("Failed to register install source template");
+        t.add_raw_template("init.sh", INSTALL_SRC)
+            .expect("Failed to register init source template");
+        t.add_raw_template("entrypoint.sh", INSTALL_SRC)
+            .expect("Failed to register init source template");
         t
     };
 }
@@ -33,23 +39,31 @@ pub async fn build(output: &Path, config_file: &Path) -> anyhow::Result<()> {
     .context("Failed to read configuration file")?;
 
     let mut ctx = tera::Context::new();
+    ctx.insert("base_install", "dnf install python3");
+    ctx.insert("base_init", "opam init -y\neval $(opam env)");
     dbg!(cfg.languages);
     if let Some(setup) = &cfg.setup {
         if let Some(install) = &setup.install {
             dbg!(install.to_string());
             ctx.insert("custom_install", &install.trim());
-            ctx.insert("base_install", "dnf install python3");
-            let install_content = tmpl
-                .render("install.sh", &ctx)
-                .context("Failed to render installation script")?;
-            dbg!(&install_content);
-            ctx.insert("install.sh", &install_content);
         }
         if let Some(init) = &setup.init {
             dbg!(init.to_string());
-            ctx.insert("init", init.trim());
+            ctx.insert("custom_init", init.trim());
         }
     }
+    let install_content = tmpl
+        .render("install.sh", &ctx)
+        .context("Failed to render installation script")?
+        .replace("\n", DOCKER_SEP);
+    let init_content = tmpl
+        .render("init.sh", &ctx)
+        .context("Failed to render init script")?
+        .replace("\n", DOCKER_SEP);
+    dbg!(&install_content);
+    ctx.insert("installsh", &install_content);
+    ctx.insert("initsh", &init_content);
+    ctx.insert("entrypointsh", &ENTRY_SRC.replace("\n", DOCKER_SEP));
     let content = tmpl
         .render("dockerfile", &ctx)
         .context("Failed to render dockerfile")?;

@@ -16,9 +16,12 @@ pub enum SubCmd {
     },
     /// Build the docker file based on a given configuration file
     Build {
-        /// File to which the Dockerfile should be written
-        #[arg(short, long, default_value = "./Dockerfile")]
-        output: PathBuf,
+        /// Specifies tag for docker image. Not recommended unless you're familiar with Docker.
+        #[arg(short, long)]
+        tag: Option<String>,
+        /// Path to directory where generated artifacts should be placed
+        #[arg(short, long)]
+        output: Option<PathBuf>,
         /// The configuration file to build
         config_file: PathBuf,
     },

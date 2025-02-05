@@ -36,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.subcommand {
         cli::SubCmd::Verify { config_file } => verify(&config_file).await?,
         cli::SubCmd::Build {
+            tag,
             output,
             config_file,
         } => build(&output, &config_file).await?,

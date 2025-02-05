@@ -1,4 +1,4 @@
-#!usr/env/sh
+#!/bin/bash
 echo "INSTALL: running base install"
 {{ base_install }}
 
