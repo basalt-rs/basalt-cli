@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use bedrock::language::Language;
 use lazy_static::lazy_static;
 use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const DOCKER_SEP: &str = "\\\n";
@@ -32,11 +32,14 @@ pub async fn build_with_output(
     let mut file = tokio::fs::File::open(config_file)
         .await
         .context("Failed to open config file")?;
-    let cfg = bedrock::Config::read_async(
-        &mut file,
-        config_file.file_name().map(|s| s.to_string_lossy()),
+    let mut config_content = String::new();
+    file.read_to_string(&mut config_content)
+        .await
+        .context("Failed to read config file to string")?;
+    let cfg = bedrock::Config::from_str(
+        &config_content,
+        Some(config_file.to_str().context("Failed to get file path")?),
     )
-    .await
     .context("Failed to read configuration file")?;
 
     let (outfile, tf) = match output {
@@ -81,33 +84,61 @@ pub async fn build_with_output(
     }
     let install_content = tmpl
         .render("install.sh", &ctx)
-        .context("Failed to render installation script")?
-        .replace("\n", DOCKER_SEP);
-    let init_content = tmpl
-        .render("init.sh", &ctx)
-        .context("Failed to render init script")?
-        .replace("\n", DOCKER_SEP);
+        .context("Failed to render installation script")?;
+    let entrypoint_content = tmpl
+        .render("entrypoint.sh", &ctx)
+        .context("Failed to render entrypoint script")?;
     dbg!(&install_content);
-    ctx.insert("installsh", &install_content);
-    ctx.insert("initsh", &init_content);
-    ctx.insert("entrypointsh", &ENTRY_SRC.replace("\n", DOCKER_SEP));
     let content = tmpl
         .render("dockerfile", &ctx)
         .context("Failed to render dockerfile")?;
+    let mut config_header = tokio_tar::Header::new_gnu();
+    config_header
+        .set_path("config.toml")
+        .context("Failed to set config.toml header")?;
+    config_header.set_size(config_content.len() as u64);
+    config_header.set_mode(08_644);
+    config_header.set_cksum();
+    tarball
+        .append(&config_header, config_content.as_bytes())
+        .await
+        .context("Failed to archive config.toml")?;
+    let mut dockerfile_header = tokio_tar::Header::new_gnu();
+    dockerfile_header
+        .set_path("Dockerfile")
+        .context("Failed to set Dockerfile tar header")?;
+    dockerfile_header.set_size(content.len() as u64);
+    dockerfile_header.set_mode(08_644);
+    dockerfile_header.set_cksum();
+    tarball
+        .append(&dockerfile_header, content.as_bytes())
+        .await
+        .context("Failed to append dockerfile to tarball")?;
     let mut install_header = tokio_tar::Header::new_gnu();
     install_header
         .set_path("install.sh")
         .context("Failed to set install.sh tar header")?;
+    install_header.set_size(install_content.len() as u64);
+    install_header.set_mode(08_644);
+    install_header.set_cksum();
+    tarball
+        .append(&install_header, install_content.as_bytes())
+        .await
+        .context("Failed to append install.sh to tarball")?;
     let mut entrypoint_header = tokio_tar::Header::new_gnu();
     entrypoint_header
         .set_path("entrypoint.sh")
         .context("Failed to set entrypoint.sh tar header")?;
+    entrypoint_header.set_size(entrypoint_content.len() as u64);
+    entrypoint_header.set_mode(08_644);
+    entrypoint_header.set_cksum();
     tarball
         .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
-        .context("Failed to append install.sh to zip")?;
+        .context("Failed to append entrypoint.sh to tar")?;
     if output.is_none() {
         // run docker build
+        bail!("Dockerfile publish not implemented");
     }
     Ok(())
 }
