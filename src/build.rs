@@ -1,7 +1,7 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
-use bedrock::language::{BuiltInLanguage, Language};
+use bedrock::language::Language;
 use lazy_static::lazy_static;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -9,7 +9,6 @@ use tokio::io::AsyncWriteExt;
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const DOCKER_SEP: &str = "\\\n";
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
-const INIT_SRC: &str = include_str!("../data/init.sh");
 const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
 
 lazy_static! {
@@ -19,15 +18,17 @@ lazy_static! {
             .expect("Failed to register docker source template");
         t.add_raw_template("install.sh", INSTALL_SRC)
             .expect("Failed to register install source template");
-        t.add_raw_template("init.sh", INSTALL_SRC)
-            .expect("Failed to register init source template");
-        t.add_raw_template("entrypoint.sh", INSTALL_SRC)
+        t.add_raw_template("entrypoint.sh", ENTRY_SRC)
             .expect("Failed to register init source template");
         t
     };
 }
 
-pub async fn build(output: &Path, config_file: &Path) -> anyhow::Result<()> {
+pub async fn build_with_output(
+    output: &Option<PathBuf>,
+    config_file: &Path,
+    tag: Option<String>,
+) -> anyhow::Result<()> {
     let mut file = tokio::fs::File::open(config_file)
         .await
         .context("Failed to open config file")?;
@@ -37,6 +38,32 @@ pub async fn build(output: &Path, config_file: &Path) -> anyhow::Result<()> {
     )
     .await
     .context("Failed to read configuration file")?;
+
+    let (outfile, tf) = match output {
+        Some(path) => (
+            File::create(path).await.context("Failed to create file")?,
+            None,
+        ),
+        None => {
+            let tempfile = async_tempfile::TempFile::new()
+                .await
+                .context("Failed to create tempfile")?;
+
+            let tempfile_clone = tempfile
+                .try_clone()
+                .await
+                .context("Failed to clone tempdir")?;
+
+            (
+                File::create(&tempfile_clone.file_path())
+                    .await
+                    .context("Failed to create writable tempfile")?,
+                Some(tempfile),
+            )
+        }
+    };
+    dbg!(&tf);
+    let mut tarball = tokio_tar::Builder::new(Box::new(outfile));
 
     let mut ctx = tera::Context::new();
     ctx.insert("base_install", "dnf install python3");
@@ -67,14 +94,20 @@ pub async fn build(output: &Path, config_file: &Path) -> anyhow::Result<()> {
     let content = tmpl
         .render("dockerfile", &ctx)
         .context("Failed to render dockerfile")?;
-    let mut outfile = File::create(output)
+    let mut install_header = tokio_tar::Header::new_gnu();
+    install_header
+        .set_path("install.sh")
+        .context("Failed to set install.sh tar header")?;
+    let mut entrypoint_header = tokio_tar::Header::new_gnu();
+    entrypoint_header
+        .set_path("entrypoint.sh")
+        .context("Failed to set entrypoint.sh tar header")?;
+    tarball
+        .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
-        .context("Failed to open specified output file")?;
-    outfile
-        .write(content.as_bytes())
-        .await
-        .context("Failed to write rendered Dockerfile")?;
-    bail!("Unimplemented")
+        .context("Failed to append install.sh to zip")?;
+    if output.is_none() {
+        // run docker build
+    }
+    Ok(())
 }
-
-fn install(lang: Language) {}

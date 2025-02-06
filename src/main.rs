@@ -3,7 +3,7 @@ mod cli;
 use std::{path::Path, process};
 
 use bedrock::ConfigReadError;
-use build::build;
+use build::build_with_output;
 use clap::Parser;
 use cli::Cli;
 use tokio::fs::File;
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
             tag,
             output,
             config_file,
-        } => build(&output, &config_file).await?,
+        } => build_with_output(&output, &config_file, tag).await?,
         cli::SubCmd::Run { .. } => {
             todo!();
         }

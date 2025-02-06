@@ -19,7 +19,7 @@ pub enum SubCmd {
         /// Specifies tag for docker image. Not recommended unless you're familiar with Docker.
         #[arg(short, long)]
         tag: Option<String>,
-        /// Path to directory where generated artifacts should be placed
+        /// Path to output tarball
         #[arg(short, long)]
         output: Option<PathBuf>,
         /// The configuration file to build

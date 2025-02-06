@@ -14,7 +14,8 @@ FROM fedora:rawhide as setup
 
 WORKDIR /setup
 
-RUN echo "{{ installsh }}" > install.sh
+#COPY {{ install_sh_path }} .
+COPY install.sh .
 RUN chmod +x install.sh
 RUN ./install.sh
 
@@ -24,11 +25,8 @@ WORKDIR /execution
 
 COPY --from=basalt-compilation /basalt-server/target/release/basalt-server .
 
-RUN touch ./init.sh
-RUN echo "{{ initsh }}" > ./init.sh
-RUN chmod +x ./init.sh
-RUN touch ./entrypoint.sh
-RUN echo "{{ entrypointsh }}" > ./entrypoint.sh
+#RUN echo "{{ entrypointsh }}" > ./entrypoint.sh
+COPY entrypoint.sh .
 RUN chmod +x ./entrypoint.sh
 
 EXPOSE 9090
