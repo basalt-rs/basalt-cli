@@ -1,13 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context};
-use bedrock::language::Language;
+use anyhow::Context;
+use bedrock::Config;
+use futures::StreamExt;
 use lazy_static::lazy_static;
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
-const DOCKER_SEP: &str = "\\\n";
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
 const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
 
@@ -42,36 +41,11 @@ pub async fn build_with_output(
     )
     .context("Failed to read configuration file")?;
 
-    let (outfile, tf) = match output {
-        Some(path) => (
-            File::create(path).await.context("Failed to create file")?,
-            None,
-        ),
-        None => {
-            let tempfile = async_tempfile::TempFile::new()
-                .await
-                .context("Failed to create tempfile")?;
-
-            let tempfile_clone = tempfile
-                .try_clone()
-                .await
-                .context("Failed to clone tempdir")?;
-
-            (
-                File::create(&tempfile_clone.file_path())
-                    .await
-                    .context("Failed to create writable tempfile")?,
-                Some(tempfile),
-            )
-        }
-    };
-    dbg!(&tf);
-    let mut tarball = tokio_tar::Builder::new(Box::new(outfile));
+    let mut tarball = tokio_tar::Builder::new(Vec::new());
 
     let mut ctx = tera::Context::new();
-    ctx.insert("base_install", "dnf install python3");
-    ctx.insert("base_init", "opam init -y\neval $(opam env)");
-    dbg!(cfg.languages);
+    ctx.insert("base_install", &make_base_install(&cfg));
+    ctx.insert("base_init", &make_base_init(&cfg));
     if let Some(setup) = &cfg.setup {
         if let Some(install) = &setup.install {
             dbg!(install.to_string());
@@ -97,7 +71,7 @@ pub async fn build_with_output(
         .set_path("config.toml")
         .context("Failed to set config.toml header")?;
     config_header.set_size(config_content.len() as u64);
-    config_header.set_mode(08_644);
+    config_header.set_mode(0o644);
     config_header.set_cksum();
     tarball
         .append(&config_header, config_content.as_bytes())
@@ -108,7 +82,7 @@ pub async fn build_with_output(
         .set_path("Dockerfile")
         .context("Failed to set Dockerfile tar header")?;
     dockerfile_header.set_size(content.len() as u64);
-    dockerfile_header.set_mode(08_644);
+    dockerfile_header.set_mode(0o644);
     dockerfile_header.set_cksum();
     tarball
         .append(&dockerfile_header, content.as_bytes())
@@ -119,7 +93,7 @@ pub async fn build_with_output(
         .set_path("install.sh")
         .context("Failed to set install.sh tar header")?;
     install_header.set_size(install_content.len() as u64);
-    install_header.set_mode(08_644);
+    install_header.set_mode(0o644);
     install_header.set_cksum();
     tarball
         .append(&install_header, install_content.as_bytes())
@@ -130,15 +104,84 @@ pub async fn build_with_output(
         .set_path("entrypoint.sh")
         .context("Failed to set entrypoint.sh tar header")?;
     entrypoint_header.set_size(entrypoint_content.len() as u64);
-    entrypoint_header.set_mode(08_644);
+    entrypoint_header.set_mode(0o644);
     entrypoint_header.set_cksum();
     tarball
         .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
         .context("Failed to append entrypoint.sh to tar")?;
-    if output.is_none() {
-        // run docker build
-        bail!("Dockerfile publish not implemented");
-    }
+    let out_data = tarball
+        .into_inner()
+        .await
+        .context("Failed to finish tarball")?;
+    match output {
+        Some(out_path) => {
+            tokio::fs::write(out_path, out_data)
+                .await
+                .context("Failed to write data")?;
+        }
+        None => {
+            let docker = bollard::Docker::connect_with_local_defaults()
+                .context("Failed to connect to docker")?;
+            let tag = tag.unwrap_or(format!("bslt-{}", cfg.hash()));
+            let stream = docker
+                .build_image(
+                    bollard::image::BuildImageOptions {
+                        dockerfile: "Dockerfile",
+                        t: &tag,
+                        rm: true,
+                        ..Default::default()
+                    },
+                    None,
+                    Some(out_data.into()),
+                )
+                .map(|e| match e {
+                    Ok(d) => d.stream.unwrap_or("<NA>".into()).trim().into(),
+                    Err(m) => m.to_string(),
+                });
+
+            // Process the stream
+            tokio::pin!(stream);
+            while let Some(item) = stream.next().await {
+                println!(
+                    "[BUILD] {}",
+                    item.trim().replace("\n", " ").replace("\t", " ")
+                );
+            }
+            println!("Docker image built successfully! (tagged {})", tag);
+        }
+    };
     Ok(())
+}
+
+fn make_base_install(cfg: &Config) -> String {
+    cfg.languages
+        .iter()
+        .map(|e| match e {
+            bedrock::language::Language::BuiltIn { language, version } => {
+                language.install_command(version).unwrap_or("").to_owned()
+            }
+            _ => "".into(),
+        })
+        .filter(|e| !e.is_empty())
+        .collect::<Vec<String>>()
+        .join("\n")
+        .trim()
+        .to_owned()
+}
+
+fn make_base_init(cfg: &Config) -> String {
+    cfg.languages
+        .iter()
+        .map(|e| match e {
+            bedrock::language::Language::BuiltIn { language, version } => {
+                language.init_command(version).unwrap_or("").to_owned()
+            }
+            _ => "".into(),
+        })
+        .filter(|e| !e.is_empty())
+        .collect::<Vec<String>>()
+        .join("\n")
+        .trim()
+        .to_owned()
 }

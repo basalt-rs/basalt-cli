@@ -1,9 +1,8 @@
 FROM rust:1.80 as basalt-compilation
 
-RUN git clone -b jack/bump-bedrock https://github.com/basalt-rs/basalt-server
+RUN git clone https://github.com/basalt-rs/basalt-server
 
 RUN apt-get update
-RUN apt-get install -y protobuf-compiler
 
 WORKDIR /basalt-server
 
