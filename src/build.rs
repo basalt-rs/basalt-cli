@@ -124,33 +124,28 @@ pub async fn build_with_output(
             let docker = bollard::Docker::connect_with_local_defaults()
                 .context("Failed to connect to docker")?;
             let tag = tag.unwrap_or(format!("bslt-{}", cfg.hash()));
-            let stream = docker
-                .build_image(
-                    bollard::image::BuildImageOptions {
-                        dockerfile: "Dockerfile",
-                        t: &tag,
-                        rm: true,
-                        ..Default::default()
-                    },
-                    None,
-                    Some(out_data.into()),
-                )
-                .map(|e| match e {
-                    Ok(d) => d.stream.unwrap_or("".into()).trim().into(),
-                    Err(m) => m.to_string(),
-                });
+            let stream = docker.build_image(
+                bollard::image::BuildImageOptions {
+                    dockerfile: "Dockerfile",
+                    t: &tag,
+                    rm: true,
+                    ..Default::default()
+                },
+                None,
+                Some(out_data.into()),
+            );
 
             // Process the stream
             tokio::pin!(stream);
             while let Some(item) = stream.next().await {
-                if !item.is_empty() {
+                let msg = item.context("Failed to perform docker build")?;
+                if let Some(stream) = msg.stream {
                     println!(
                         "[BUILD] {}",
-                        item.trim().replace("\n", " ").replace("\t", " ")
+                        stream.trim().replace("\n", " ").replace("\t", " ")
                     );
                 }
             }
-            println!("Docker image built successfully! (tagged {})", tag);
         }
     };
     Ok(())
