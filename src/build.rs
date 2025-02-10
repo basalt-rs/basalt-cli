@@ -136,17 +136,19 @@ pub async fn build_with_output(
                     Some(out_data.into()),
                 )
                 .map(|e| match e {
-                    Ok(d) => d.stream.unwrap_or("<NA>".into()).trim().into(),
+                    Ok(d) => d.stream.unwrap_or("".into()).trim().into(),
                     Err(m) => m.to_string(),
                 });
 
             // Process the stream
             tokio::pin!(stream);
             while let Some(item) = stream.next().await {
-                println!(
-                    "[BUILD] {}",
-                    item.trim().replace("\n", " ").replace("\t", " ")
-                );
+                if !item.is_empty() {
+                    println!(
+                        "[BUILD] {}",
+                        item.trim().replace("\n", " ").replace("\t", " ")
+                    );
+                }
             }
             println!("Docker image built successfully! (tagged {})", tag);
         }

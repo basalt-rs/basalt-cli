@@ -1,8 +1,6 @@
-FROM rust:1.80 as basalt-compilation
+FROM rust:1.84 as basalt-compilation
 
 RUN git clone https://github.com/basalt-rs/basalt-server
-
-RUN apt-get update
 
 WORKDIR /basalt-server
 
