@@ -5,6 +5,7 @@ use bedrock::Config;
 use futures::StreamExt;
 use lazy_static::lazy_static;
 use tokio::io::AsyncReadExt;
+use tokio_tar::Header;
 
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
@@ -66,46 +67,26 @@ pub async fn build_with_output(
     let content = tmpl
         .render("dockerfile", &ctx)
         .context("Failed to render dockerfile")?;
-    let mut config_header = tokio_tar::Header::new_gnu();
-    config_header
-        .set_path("config.toml")
-        .context("Failed to set config.toml header")?;
-    config_header.set_size(config_content.len() as u64);
-    config_header.set_mode(0o644);
-    config_header.set_cksum();
+    let config_header = make_header("config.toml", config_content.len() as u64, 0o644)
+        .context("Failed to create config header")?;
     tarball
         .append(&config_header, config_content.as_bytes())
         .await
         .context("Failed to archive config.toml")?;
-    let mut dockerfile_header = tokio_tar::Header::new_gnu();
-    dockerfile_header
-        .set_path("Dockerfile")
-        .context("Failed to set Dockerfile tar header")?;
-    dockerfile_header.set_size(content.len() as u64);
-    dockerfile_header.set_mode(0o644);
-    dockerfile_header.set_cksum();
+    let dockerfile_header = make_header("Dockerfile", content.len() as u64, 0o644)
+        .context("Failed to create dockerfile header")?;
     tarball
         .append(&dockerfile_header, content.as_bytes())
         .await
         .context("Failed to append dockerfile to tarball")?;
-    let mut install_header = tokio_tar::Header::new_gnu();
-    install_header
-        .set_path("install.sh")
-        .context("Failed to set install.sh tar header")?;
-    install_header.set_size(install_content.len() as u64);
-    install_header.set_mode(0o644);
-    install_header.set_cksum();
+    let install_header = make_header("install.sh", install_content.len() as u64, 0o644)
+        .context("Failed to create install header")?;
     tarball
         .append(&install_header, install_content.as_bytes())
         .await
         .context("Failed to append install.sh to tarball")?;
-    let mut entrypoint_header = tokio_tar::Header::new_gnu();
-    entrypoint_header
-        .set_path("entrypoint.sh")
-        .context("Failed to set entrypoint.sh tar header")?;
-    entrypoint_header.set_size(entrypoint_content.len() as u64);
-    entrypoint_header.set_mode(0o644);
-    entrypoint_header.set_cksum();
+    let entrypoint_header = make_header("entrypoint.sh", entrypoint_content.len() as u64, 0o644)
+        .context("Failed to create entrypoint header")?;
     tarball
         .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
@@ -181,4 +162,18 @@ fn make_base_init(cfg: &Config) -> String {
         .join("\n")
         .trim()
         .to_owned()
+}
+
+fn make_header<P>(path: P, size: u64, mode: u32) -> anyhow::Result<Header>
+where
+    P: AsRef<Path>,
+{
+    let mut header = tokio_tar::Header::new_gnu();
+    header
+        .set_path(path)
+        .context("Failed to set Dockerfile tar header")?;
+    header.set_size(size);
+    header.set_mode(mode);
+    header.set_cksum();
+    Ok(header)
 }
