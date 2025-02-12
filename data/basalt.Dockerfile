@@ -27,4 +27,4 @@ RUN chmod +x ./entrypoint.sh
 
 EXPOSE 9090
 ENTRYPOINT [ "./entrypoint.sh" ]
-CMD [ "./basalt-server", "run", "9090", "./config.toml" ]
+CMD [ "./basalt-server", "run", "--port", "9090", "./config.toml" ]

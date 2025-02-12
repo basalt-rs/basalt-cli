@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context;
 use bedrock::Config;
@@ -166,12 +169,12 @@ fn make_base_init(cfg: &Config) -> String {
 
 fn make_header<P>(path: P, size: u64, mode: u32) -> anyhow::Result<Header>
 where
-    P: AsRef<Path>,
+    P: AsRef<Path> + Display,
 {
     let mut header = tokio_tar::Header::new_gnu();
     header
-        .set_path(path)
-        .context("Failed to set Dockerfile tar header")?;
+        .set_path(&path)
+        .with_context(|| format!("Failed to set {} tar header", path))?;
     header.set_size(size);
     header.set_mode(mode);
     header.set_cksum();
