@@ -34,6 +34,20 @@ pub enum SubCmd {
         /// The configuration file to build
         config_file: PathBuf,
     },
+    /// Render the configuration into a printable packet PDF
+    Render {
+        /// Output file for the PDF (`.pdf` is optional).  If not specified, will get name from the
+        /// config file used
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Path to a template to use, if not specified uses the default template.  Most of the
+        /// time, this is not necessary.
+        #[arg(short, long)]
+        template: Option<PathBuf>,
+        /// Config file from which to generate the PDF
+        #[arg(default_value = default_config())]
+        config_file: PathBuf,
+    },
     /// Generate the game code for your computer on this network
     GameCode {
         /// Configuration for which to generate the code.  Used for getting port number

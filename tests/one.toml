@@ -27,7 +27,7 @@ python3 = "latest"
 java = "21"
 ocaml = { build = "ocamlc -o out solution.ml", run = "./out", source_file = "solution.ml" }
 
-[[accounts.admins]]
+[[accounts.hosts]]
 name = "Teacher"
 password = "abc123"
 
