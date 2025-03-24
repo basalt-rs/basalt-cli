@@ -1,6 +1,10 @@
-use std::path::PathBuf;
+use std::{net::Ipv4Addr, path::PathBuf};
 
 use clap::{Parser, Subcommand};
+
+fn default_config() -> &'static std::ffi::OsStr {
+    std::ffi::OsStr::new("basalt.toml")
+}
 
 #[derive(Clone, Debug, Subcommand, PartialEq, Eq, Hash)]
 pub enum SubCmd {
@@ -29,6 +33,32 @@ pub enum SubCmd {
     Run {
         /// The configuration file to build
         config_file: PathBuf,
+    },
+    /// Render the configuration into a printable packet PDF
+    Render {
+        /// Output file for the PDF (`.pdf` is optional).  If not specified, will get name from the
+        /// config file used
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Path to a template to use, if not specified uses the default template.  Most of the
+        /// time, this is not necessary.
+        #[arg(short, long)]
+        template: Option<PathBuf>,
+        /// Config file from which to generate the PDF
+        #[arg(default_value = default_config())]
+        config_file: PathBuf,
+    },
+    /// Generate the game code for your computer on this network
+    GameCode {
+        /// Configuration for which to generate the code.  Used for getting port number
+        #[arg(short, long, default_value = default_config(), conflicts_with = "port")]
+        config: PathBuf,
+        /// Port for which to generate the code
+        #[arg(short, long, conflicts_with = "config")]
+        port: Option<u16>,
+        /// IPv4 for which to generate the code.  If not specified, attempts to automatically
+        /// determine the IP address
+        ip: Option<Ipv4Addr>,
     },
 }
 
