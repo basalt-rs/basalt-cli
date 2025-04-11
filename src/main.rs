@@ -92,6 +92,49 @@ async fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("saving pdf to {}", output.display()))?;
             println!("Rendered PDF to {}", output.display());
         }
+        cli::SubCmd::RenderLogins {
+            output,
+            config_file,
+            template,
+        } => {
+            let mut file = File::open(&config_file)
+                .await
+                .context("opening config file")?;
+            let config = bedrock::Config::read_async(
+                &mut file,
+                config_file.file_name().and_then(OsStr::to_str),
+            )
+            .await
+            .context("loading config")?;
+            let template = if let Some(template) = template {
+                Some(
+                    tokio::fs::read_to_string(template)
+                        .await
+                        .context("reading config file")?,
+                )
+            } else {
+                None
+            };
+
+            let output = output
+                .unwrap_or(
+                    format!(
+                        "{}-logins",
+                        config_file
+                            .with_extension("")
+                            .file_name()
+                            .expect("This would have failed when opening the file")
+                            .to_string_lossy()
+                    )
+                    .into(),
+                )
+                .with_extension("pdf");
+            let pdf = config.render_login_pdf(template).context("creating pdf")?;
+            tokio::fs::write(&output, pdf)
+                .await
+                .with_context(|| format!("saving pdf to {}", output.display()))?;
+            println!("Rendered PDF to {}", output.display());
+        }
         cli::SubCmd::GameCode { config, ip, port } => {
             let ip = if let Some(ip) = ip {
                 ip
