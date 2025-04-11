@@ -129,7 +129,7 @@ async fn main() -> anyhow::Result<()> {
                     .into(),
                 )
                 .with_extension("pdf");
-            let pdf = config.render_pdf(template).context("creating pdf")?;
+            let pdf = config.render_login_pdf(template).context("creating pdf")?;
             tokio::fs::write(&output, pdf)
                 .await
                 .with_context(|| format!("saving pdf to {}", output.display()))?;
