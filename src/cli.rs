@@ -18,6 +18,10 @@ pub enum SubCmd {
         /// The configuration file to verify
         config_file: PathBuf,
     },
+    Init {
+        #[arg()]
+        path: Option<PathBuf>,
+    },
     /// Build the docker file based on a given configuration file
     Build {
         /// Specifies tag for docker image. Not recommended unless you're familiar with Docker.
