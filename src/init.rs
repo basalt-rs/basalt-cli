@@ -19,8 +19,7 @@ pub async fn handle(path: Option<PathBuf>) -> anyhow::Result<()> {
     let name = if let Some(mut path) = path.clone() {
         path.set_extension("");
         path.file_name()
-            .map(|f| f.to_str())
-            .flatten()
+            .and_then(|f| f.to_str())
             .map_or("basalt", |f| {
                 if f.trim().is_empty() {
                     "basalt"
