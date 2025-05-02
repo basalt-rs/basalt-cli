@@ -176,7 +176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "basalt-cli"
+name = "basalt"
 version = "0.1.0"
 dependencies = [
  "ansi_term",
