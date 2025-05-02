@@ -57,44 +57,55 @@ pub async fn build_with_output(
             ctx.insert("custom_init", init.trim());
         }
     }
+    ctx.insert("web_client", &cfg.web_client);
+
     let install_content = tmpl
         .render("install.sh", &ctx)
         .context("Failed to render installation script")?;
+
     let entrypoint_content = tmpl
         .render("entrypoint.sh", &ctx)
         .context("Failed to render entrypoint script")?;
+
     dbg!(&install_content);
+
     let content = tmpl
         .render("dockerfile", &ctx)
         .context("Failed to render dockerfile")?;
+
     let config_header = make_header("config.toml", config_content.len() as u64, 0o644)
         .context("Failed to create config header")?;
     tarball
         .append(&config_header, config_content.as_bytes())
         .await
         .context("Failed to archive config.toml")?;
+
     let dockerfile_header = make_header("Dockerfile", content.len() as u64, 0o644)
         .context("Failed to create dockerfile header")?;
     tarball
         .append(&dockerfile_header, content.as_bytes())
         .await
         .context("Failed to append dockerfile to tarball")?;
+
     let install_header = make_header("install.sh", install_content.len() as u64, 0o644)
         .context("Failed to create install header")?;
     tarball
         .append(&install_header, install_content.as_bytes())
         .await
         .context("Failed to append install.sh to tarball")?;
+
     let entrypoint_header = make_header("entrypoint.sh", entrypoint_content.len() as u64, 0o644)
         .context("Failed to create entrypoint header")?;
     tarball
         .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
         .context("Failed to append entrypoint.sh to tar")?;
+
     let out_data = tarball
         .into_inner()
         .await
         .context("Failed to finish tarball")?;
+
     match output {
         Some(out_path) => {
             tokio::fs::write(out_path, out_data)
