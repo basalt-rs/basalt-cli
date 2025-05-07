@@ -1,5 +1,6 @@
 mod build;
 mod cli;
+mod init;
 use std::{ffi::OsStr, path::Path, process};
 
 use ansi_term::Colour::{Blue, Green};
@@ -46,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.subcommand {
         cli::SubCmd::Verify { config_file } => verify(&config_file).await?,
+        cli::SubCmd::Init { path } => init::handle(path).await?,
         cli::SubCmd::Build {
             tag,
             output,
