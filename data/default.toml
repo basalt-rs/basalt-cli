@@ -14,7 +14,7 @@ port = 8517
 
 # install = { import = "./install.sh" }
 install = '''
-dnf install opam
+dnf install opam -y
 '''
 
 # init = { import = "./init.sh" }

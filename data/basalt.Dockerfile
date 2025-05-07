@@ -6,9 +6,7 @@ ENV PATH=/:$PATH
 RUN git clone https://github.com/basalt-rs/basalt-server
 
 WORKDIR /basalt-server
-
-# TODO: remove
-RUN git checkout optional-docs
+RUN git checkout temp/mock-demo
 RUN cargo build --release --no-default-features
 
 {% if web_client %}
@@ -16,11 +14,8 @@ FROM node:22 as web-compilation
 
 RUN git clone https://github.com/basalt-rs/basalt /basalt
 
-# TODO: Remove
 WORKDIR /basalt
-# TODO: Remove
-RUN git checkout no-ssr
-
+RUN git checkout temp/mock-demo
 WORKDIR /basalt/client
 RUN npm ci
 RUN npm run build
