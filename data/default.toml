@@ -9,7 +9,7 @@
 
 port = 8517
 
-# state whether or not the server should expose a web client
+# state whether the server should expose a web client
 web_client = true
 
 [setup]
