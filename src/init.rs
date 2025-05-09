@@ -32,13 +32,15 @@ pub async fn handle(path: Option<PathBuf>) -> anyhow::Result<()> {
         "basalt".to_owned()
     };
 
-    let path = path.map_or(PathBuf::from(&name), |p| {
-        if p.file_name().is_some() {
-            p
-        } else {
-            p.with_file_name(name.clone()).with_extension("toml")
-        }
-    });
+    let path = path
+        .map_or(PathBuf::from(&name), |p| {
+            if p.file_name().is_some() {
+                p
+            } else {
+                p.with_file_name(name.clone()).with_extension("toml")
+            }
+        })
+        .with_extension("toml");
 
     let mut ctx = tera::Context::new();
     ctx.insert("name", &name);
