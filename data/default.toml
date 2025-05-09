@@ -9,12 +9,15 @@
 
 port = 8517
 
+# state whether the server should expose a web client
+web_client = true
+
 [setup]
 # import = "./setup.toml"
 
 # install = { import = "./install.sh" }
 install = '''
-dnf install opam
+dnf install opam -y
 '''
 
 # init = { import = "./init.sh" }
