@@ -17,3 +17,7 @@ tokio-tar = "0.3.1"
 futures = "0.3.31"
 local-ip-address = "0.6.3"
 ansi_term = "0.12.1"
+reqwest = { version = "0.12.15", features = ["json"] }
+reqwest-websocket = { version = "0.4.4", features = ["json"] }
+serde_json = "1.0.140"
+hdrhistogram = "7.5.4"

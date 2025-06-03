@@ -78,6 +78,13 @@ pub enum SubCmd {
         /// determine the IP address
         ip: Option<Ipv4Addr>,
     },
+    Benchmark {
+        #[arg(short, long, default_value_t = 8518)]
+        port: u16,
+        #[arg(short, long)]
+        config: PathBuf,
+        server_binary: PathBuf,
+    },
 }
 
 /// CLI tool for generating and running the docker container needed for hosting a basalt

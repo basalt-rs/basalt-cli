@@ -1,15 +1,19 @@
 mod build;
 mod cli;
 mod init;
-use std::{ffi::OsStr, path::Path, process};
+use std::{ffi::OsStr, path::Path, process, time::Duration};
 
 use ansi_term::Colour::{Blue, Green};
 use anyhow::Context;
-use bedrock::ConfigReadError;
+use bedrock::{ConfigReadError, User};
 use build::build_with_output;
 use clap::Parser;
 use cli::Cli;
-use tokio::fs::File;
+use futures::{SinkExt, TryStreamExt};
+use hdrhistogram::Histogram;
+use reqwest_websocket::{CloseCode, Message, RequestBuilderExt};
+use serde_json::json;
+use tokio::{fs::File, process::Command, task::JoinSet, time::Instant};
 
 pub async fn verify(config_file: &Path) -> anyhow::Result<()> {
     let mut file = File::open(config_file).await?;
@@ -175,6 +179,107 @@ async fn main() -> anyhow::Result<()> {
                 Green.paint("is"),
                 Blue.paint(code)
             );
+        }
+        cli::SubCmd::Benchmark {
+            port,
+            ref config,
+            ref server_binary,
+        } => {
+            dbg!(port, server_binary);
+
+            let mut child = Command::new(server_binary)
+                .arg("run")
+                .arg(config)
+                .args(["-p", &port.to_string()])
+                .env("BASALT_SERVER_LOGGING", "basalt_server=trace")
+                .spawn()?;
+
+            let mut file = File::open(config).await?;
+            let config = bedrock::Config::read_async(
+                &mut file,
+                config.file_name().map(|s| s.to_string_lossy()),
+            )
+            .await?;
+
+            let mut joins = JoinSet::new();
+
+            eprintln!("Waiting for server to start...");
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+
+            for team in config.accounts.competitors.clone() {
+                async fn x(team: User, port: u16) -> anyhow::Result<()> {
+                    dbg!(&team);
+                    let client = reqwest::Client::new();
+                    let res = client
+                        .post(format!("http://127.0.0.1:{}/auth/login", port))
+                        .json(&json! {{
+                            "username": team.name,
+                            "password": team.password,
+                        }})
+                        .send()
+                        .await?;
+                    dbg!(res.status());
+                    let data: serde_json::Value = res.json().await?;
+                    dbg!(&data);
+                    let serde_json::Value::String(token) = &data["token"] else {
+                        anyhow::bail!("Token is not a string");
+                    };
+                    dbg!(token);
+                    let ws = client
+                        .get(format!("ws://127.0.0.1:{}/ws", port))
+                        .header(reqwest::header::SEC_WEBSOCKET_PROTOCOL, token)
+                        .upgrade()
+                        .protocols([token])
+                        .send()
+                        .await?;
+                    let mut ws = ws.into_websocket().await?;
+                    let mut hist = Histogram::<u64>::new(2).unwrap();
+                    let mut items = Vec::with_capacity(100);
+                    for x in 0..100 {
+                        let start = Instant::now();
+                        ws.send(Message::Text(serde_json::to_string(&serde_json::json! {{
+                            "id": x,
+                            "kind": "run-test",
+                            "language": "java",
+                            "solution": r#"
+                                public class Solution {
+                                    public static void main(String[] args) {
+                                        System.out.println("olleh");
+                                    }
+                                }
+                                "#,
+                            "problem": 0,
+                        }})?))
+                        .await?;
+                        ws.try_next().await?;
+                        let elapsed = start.elapsed();
+                        hist += elapsed.as_millis() as u64; // It is unlikley that this will take more than 584542046 years...
+                        items.push(elapsed.as_millis());
+                    }
+                    ws.close(CloseCode::Normal, None).await?;
+                    for f in hist.iter_linear(100) {
+                        let n = f.value_iterated_to();
+                        let c = f.count_at_value();
+
+                        eprintln!("n = {}, c = {}", n, c);
+                    }
+                    dbg!(items);
+                    Ok(())
+                }
+                joins.spawn(async move { x(team, port).await });
+            }
+
+            dbg!("start");
+            joins
+                .join_all()
+                .await
+                .into_iter()
+                .collect::<anyhow::Result<()>>()?;
+            dbg!("end");
+
+            child.kill().await?;
+
+            child.wait().await?;
         }
     }
     Ok(())
