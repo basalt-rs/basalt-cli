@@ -1,21 +1,6 @@
-FROM rust:1.84 as basalt-compilation
-
-RUN touch /redocly && chmod +x /redocly
-ENV PATH=/:$PATH
-RUN git clone https://github.com/basalt-rs/basalt-server
-
-WORKDIR /basalt-server
-
-RUN cargo build --release --no-default-features
-
+FROM ghcr.io/basalt-rs/basalt-server:latest AS basalt-server-base
 {% if web_client %}
-FROM node:22 as web-compilation
-
-RUN git clone https://github.com/basalt-rs/basalt /basalt
-
-WORKDIR /basalt/client
-RUN npm ci
-RUN npm run build
+FROM ghcr.io/basalt-rs/basalt-web:latest AS basalt-web-base
 {% endif %}
 
 # DO NOT EDIT UNLESS YOU KNOW WHAT YOU'RE DOING
@@ -30,9 +15,9 @@ FROM setup as execution
 
 WORKDIR /execution
 
-COPY --from=basalt-compilation /basalt-server/target/release/basalt-server .
+COPY --from=basalt-server-base /basalt-server/target/release/basalt-server .
 {% if web_client %}
-COPY --from=web-compilation /basalt/client/out ./web/
+COPY --from=basalt-web-base /web ./web/
 {% endif %}
 
 COPY config.toml .
@@ -40,6 +25,7 @@ COPY entrypoint.sh .
 RUN chmod +x ./entrypoint.sh
 
 EXPOSE 9090
+# the CMD will be executed within the context of the execution of the ENTRYPOINT
 ENTRYPOINT [ "./entrypoint.sh" ]
 {% if web_client %}
 CMD [ "./basalt-server", "run", "--port", "9090", "./config.toml", "-w", "./web/" ]

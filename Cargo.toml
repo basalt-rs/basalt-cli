@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
-bedrock = { git = "http://github.com/basalt-rs/bedrock.git", rev = "6bec1a2", features = [
+bedrock = { git = "http://github.com/basalt-rs/bedrock.git", rev = "0deb96b", features = [
   "tokio",
 ] }
 tokio = { version = "1.43.0", features = ["full"] }
