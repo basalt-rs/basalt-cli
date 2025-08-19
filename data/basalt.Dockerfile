@@ -1,6 +1,6 @@
-FROM ghcr.io/basalt-rs/basalt-server:dev-pr-61 AS basalt-server-base
+FROM ghcr.io/basalt-rs/basalt-server:{{ server_tag }} AS basalt-server-base
 {% if web_client %}
-FROM ghcr.io/basalt-rs/basalt-web:dev-pr-125 AS basalt-web-base
+FROM ghcr.io/basalt-rs/basalt-web:{{ web_tag }} AS basalt-web-base
 {% endif %}
 
 # DO NOT EDIT UNLESS YOU KNOW WHAT YOU'RE DOING

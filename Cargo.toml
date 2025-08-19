@@ -1,13 +1,13 @@
 [package]
 name = "basalt"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
 bedrock = { git = "http://github.com/basalt-rs/bedrock.git", rev = "0deb96b", features = [
-  "tokio",
+    "tokio",
 ] }
 tokio = { version = "1.43.0", features = ["full"] }
 lazy_static = "1.5.0"

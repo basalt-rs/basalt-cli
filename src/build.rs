@@ -11,6 +11,8 @@ const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
 const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
 
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 lazy_static! {
     static ref tmpl: tera::Tera = {
         let mut t = tera::Tera::default();
@@ -45,6 +47,14 @@ pub async fn build_with_output(
     let mut tarball = tokio_tar::Builder::new(Vec::new());
 
     let mut ctx = tera::Context::new();
+    ctx.insert(
+        "server_tag",
+        &std::env::var("BASALT_SERVER_TAG").unwrap_or_else(|_| get_server_tag(&cfg)),
+    );
+    ctx.insert(
+        "web_tag",
+        &std::env::var("BASALT_WEB_TAG").unwrap_or(APP_VERSION.to_owned()),
+    );
     ctx.insert("base_install", &make_base_install(&cfg));
     ctx.insert("base_init", &make_base_init(&cfg));
     if let Some(setup) = &cfg.setup {
@@ -187,4 +197,20 @@ where
     header.set_mode(mode);
     header.set_cksum();
     Ok(header)
+}
+
+/// Based on the config, determine which tag to use
+fn get_server_tag(cfg: &Config) -> String {
+    let needs_scripting = !cfg.integrations.event_handlers.is_empty();
+    let needs_webhooks = !cfg.integrations.webhooks.is_empty();
+    let variant = if needs_scripting && needs_webhooks {
+        "full"
+    } else if needs_scripting {
+        "scripting"
+    } else if needs_webhooks {
+        "webhooks"
+    } else {
+        "minimal"
+    };
+    format!("{APP_VERSION}-{variant}")
 }
