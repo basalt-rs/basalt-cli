@@ -35,7 +35,7 @@ export const onPause = async (event) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      content: `Team ${event.pausedBy} just paused the game bruh`,
+      content: `Team ${event.pausedBy} just paused the game`,
     }),
   });
   console.log(result.status);
