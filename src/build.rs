@@ -112,7 +112,7 @@ pub async fn build_with_output(
         .context("Failed to append entrypoint.sh to tar")?;
 
     // add scripts if any exist
-    append_scripts(&mut tarball, cfg.clone())
+    append_event_handlers(&mut tarball, cfg.clone())
         .await
         .context("Failed to add scripts")?;
 
@@ -220,7 +220,7 @@ fn get_server_tag(cfg: &Config) -> String {
     format!("{APP_VERSION}-{variant}")
 }
 
-async fn append_scripts(tb: &mut Builder<Vec<u8>>, cfg: Config) -> anyhow::Result<()> {
+async fn append_event_handlers(tb: &mut Builder<Vec<u8>>, cfg: Config) -> anyhow::Result<()> {
     let mut set = JoinSet::new();
 
     for handler_path in cfg.integrations.event_handlers {
