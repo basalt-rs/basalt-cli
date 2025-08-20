@@ -3,7 +3,6 @@ FROM ghcr.io/basalt-rs/basalt-server:{{ server_tag }} AS basalt-server-base
 FROM ghcr.io/basalt-rs/basalt-web:{{ web_tag }} AS basalt-web-base
 {% endif %}
 
-# DO NOT EDIT UNLESS YOU KNOW WHAT YOU'RE DOING
 FROM fedora:rawhide as setup
 
 WORKDIR /setup
