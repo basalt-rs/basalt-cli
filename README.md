@@ -34,7 +34,7 @@ files and directories are worth noting:
 
 ## Networking
 
-Since your Basalt competition is ran inside of a container, loopback addresses
+Since your Basalt competition is run inside of a container, loopback addresses
 and other DNS information might be a bit different. You have three main ways
 to deal with this:
 - Docker `--add-host` DNS mapping
