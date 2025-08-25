@@ -1,7 +1,11 @@
 [package]
-name = "basalt"
+name = "basalt-cli"
 version = "1.0.0"
 edition = "2021"
+
+[[bin]]
+name = "basalt"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.95"
