@@ -23,6 +23,11 @@ COPY config.toml .
 COPY entrypoint.sh .
 RUN chmod +x ./entrypoint.sh
 
+# copy scripts into execution context
+{% for script in event_handler_scripts %}
+COPY  {{script}} ./{{script}}
+{% endfor %}
+
 EXPOSE 9090
 # the CMD will be executed within the context of the execution of the ENTRYPOINT
 ENTRYPOINT [ "./entrypoint.sh" ]

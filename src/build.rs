@@ -69,6 +69,8 @@ pub async fn build_with_output(
     }
     ctx.insert("web_client", &cfg.web_client);
 
+    ctx.insert("event_handler_scripts", &cfg.integrations.event_handlers);
+
     let install_content = tmpl
         .render("install.sh", &ctx)
         .context("Failed to render installation script")?;
