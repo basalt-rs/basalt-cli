@@ -5,7 +5,7 @@ use bedrock::Config;
 use futures::StreamExt;
 use lazy_static::lazy_static;
 use tokio::io::AsyncReadExt;
-use tokio_tar::Header;
+use tokio_tar::{Builder, Header};
 
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
@@ -187,4 +187,13 @@ where
     header.set_mode(mode);
     header.set_cksum();
     Ok(header)
+}
+
+/// Append all workspaces to tarball (maintaining path)
+async fn append_workspaces(tb: &mut Builder<Vec<u8>>, cfg: Config) -> anyhow::Result<()> {
+    for workspace in cfg.workspaces.values() {
+        if let Some(workspace_from) = workspace.from {
+            tb.append_dir_all(workspace_from, workspace_from)
+        }
+    }
 }
