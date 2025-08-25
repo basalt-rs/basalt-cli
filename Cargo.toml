@@ -1,19 +1,19 @@
 [package]
 name = "basalt"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
-bedrock = { git = "http://github.com/basalt-rs/bedrock.git", rev = "6bec1a2", features = [
-  "tokio",
+bedrock = { git = "http://github.com/basalt-rs/bedrock.git", tag = "v1.0.0", features = [
+    "tokio",
 ] }
-tokio = { version = "1.43.0", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 lazy_static = "1.5.0"
 tera = "1.20.0"
 bollard = "0.18.1"
 tokio-tar = "0.3.1"
 futures = "0.3.31"
-local-ip-address = "0.6.3"
+local-ip-address = "0.6.5"
 ansi_term = "0.12.1"

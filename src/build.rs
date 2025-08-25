@@ -4,12 +4,15 @@ use anyhow::Context;
 use bedrock::Config;
 use futures::StreamExt;
 use lazy_static::lazy_static;
-use tokio::io::AsyncReadExt;
-use tokio_tar::Header;
+use tokio::{io::AsyncReadExt, task::JoinSet};
+use tokio_tar::{Builder, Header};
 
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
 const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
+const DOCKER_IGNORE: &str = "./Dockerfile\n./.dockerignore";
+
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {
     static ref tmpl: tera::Tera = {
@@ -45,6 +48,14 @@ pub async fn build_with_output(
     let mut tarball = tokio_tar::Builder::new(Vec::new());
 
     let mut ctx = tera::Context::new();
+    ctx.insert(
+        "server_tag",
+        &std::env::var("BASALT_SERVER_TAG").unwrap_or_else(|_| get_server_tag(&cfg)),
+    );
+    ctx.insert(
+        "web_tag",
+        &std::env::var("BASALT_WEB_TAG").unwrap_or(APP_VERSION.to_owned()),
+    );
     ctx.insert("base_install", &make_base_install(&cfg));
     ctx.insert("base_init", &make_base_init(&cfg));
     if let Some(setup) = &cfg.setup {
@@ -87,6 +98,13 @@ pub async fn build_with_output(
         .await
         .context("Failed to append dockerfile to tarball")?;
 
+    let docker_ignore_header = make_header(".dockerignore", DOCKER_IGNORE.len() as u64, 0o644)
+        .context("Failed to create dockerignore header")?;
+    tarball
+        .append(&docker_ignore_header, DOCKER_IGNORE.as_bytes())
+        .await
+        .context("Failed to append .dockerignore to tarball")?;
+
     let install_header = make_header("install.sh", install_content.len() as u64, 0o644)
         .context("Failed to create install header")?;
     tarball
@@ -100,6 +118,11 @@ pub async fn build_with_output(
         .append(&entrypoint_header, entrypoint_content.as_bytes())
         .await
         .context("Failed to append entrypoint.sh to tar")?;
+
+    // add scripts if any exist
+    append_event_handlers(&mut tarball, cfg.clone())
+        .await
+        .context("Failed to add scripts")?;
 
     let out_data = tarball
         .into_inner()
@@ -187,4 +210,59 @@ where
     header.set_mode(mode);
     header.set_cksum();
     Ok(header)
+}
+
+/// Based on the config, determine which tag to use
+fn get_server_tag(cfg: &Config) -> String {
+    let needs_scripting = !cfg.integrations.event_handlers.is_empty();
+    let needs_webhooks = !cfg.integrations.webhooks.is_empty();
+    let variant = if needs_scripting && needs_webhooks {
+        "full"
+    } else if needs_scripting {
+        "scripting"
+    } else if needs_webhooks {
+        "webhooks"
+    } else {
+        "minimal"
+    };
+    format!("{APP_VERSION}-{variant}")
+}
+
+async fn append_event_handlers(tb: &mut Builder<Vec<u8>>, cfg: Config) -> anyhow::Result<()> {
+    let mut set = JoinSet::new();
+
+    for handler_path in cfg.integrations.event_handlers {
+        set.spawn(async move {
+            let contents = tokio::fs::read_to_string(&handler_path)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to read script contents from {}",
+                        handler_path.display()
+                    )
+                })?;
+
+            Ok::<_, anyhow::Error>((handler_path, contents))
+        });
+    }
+
+    // Collect results (unordered)
+    let results = set
+        .join_all()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<(PathBuf, String)>, _>>()
+        .context("Failed to read scripts")?;
+
+    // Append sequentially (tarball writes must be ordered)
+    for (handler_path, contents) in results {
+        let script_header = make_header(&handler_path, contents.len() as u64, 0o644)
+            .context("Failed to create script header")?;
+
+        tb.append(&script_header, contents.as_bytes())
+            .await
+            .context("Failed to append script to tarball")?;
+    }
+
+    Ok(())
 }

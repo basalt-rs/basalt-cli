@@ -1,24 +1,8 @@
-FROM rust:1.84 as basalt-compilation
-
-RUN touch /redocly && chmod +x /redocly
-ENV PATH=/:$PATH
-RUN git clone https://github.com/basalt-rs/basalt-server
-
-WORKDIR /basalt-server
-
-RUN cargo build --release --no-default-features
-
+FROM ghcr.io/basalt-rs/basalt-server:{{ server_tag }} AS basalt-server-base
 {% if web_client %}
-FROM node:22 as web-compilation
-
-RUN git clone https://github.com/basalt-rs/basalt /basalt
-
-WORKDIR /basalt/client
-RUN npm ci
-RUN npm run build
+FROM ghcr.io/basalt-rs/basalt-web:{{ web_tag }} AS basalt-web-base
 {% endif %}
 
-# DO NOT EDIT UNLESS YOU KNOW WHAT YOU'RE DOING
 FROM fedora:rawhide as setup
 
 WORKDIR /setup
@@ -30,19 +14,19 @@ FROM setup as execution
 
 WORKDIR /execution
 
-COPY --from=basalt-compilation /basalt-server/target/release/basalt-server .
+COPY --from=basalt-server-base /usr/local/bin/basalt-server /usr/local/bin/basalt-server
 {% if web_client %}
-COPY --from=web-compilation /basalt/client/out ./web/
+COPY --from=basalt-web-base /web /opt/basalt/web/
 {% endif %}
 
-COPY config.toml .
-COPY entrypoint.sh .
+COPY . .
 RUN chmod +x ./entrypoint.sh
 
 EXPOSE 9090
+# the CMD will be executed within the context of the execution of the ENTRYPOINT
 ENTRYPOINT [ "./entrypoint.sh" ]
 {% if web_client %}
-CMD [ "./basalt-server", "run", "--port", "9090", "./config.toml", "-w", "./web/" ]
+CMD [ "basalt-server", "run", "--port", "9090", "./config.toml", "-w", "/opt/basalt/web/" ]
 {% else %}
-CMD [ "./basalt-server", "run", "--port", "9090", "./config.toml" ]
+CMD [ "basalt-server", "run", "--port", "9090", "./config.toml" ]
 {% endif %}

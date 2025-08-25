@@ -14,10 +14,14 @@ opam init -y
 eval $(opam env)
 '''
 
+[integrations]
+event_handlers = "./tests/event-handlers.js"
+webhooks = "http://localhost:8081/events"
+
 [test_runner]
 # import = "./test-runner.toml"
 
-timeout_ms = 60_000
+timeout = "60s"
 trim_output = true
 max_memory = { compile = 128, run = 64 }
 max_file_size = 8192
