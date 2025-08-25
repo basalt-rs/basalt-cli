@@ -10,6 +10,7 @@ use tokio_tar::{Builder, Header};
 const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
 const INSTALL_SRC: &str = include_str!("../data/install.sh");
 const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
+const DOCKER_IGNORE: &str = "./Dockerfile\n./.dockerignore";
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -69,8 +70,6 @@ pub async fn build_with_output(
     }
     ctx.insert("web_client", &cfg.web_client);
 
-    ctx.insert("event_handler_scripts", &cfg.integrations.event_handlers);
-
     let install_content = tmpl
         .render("install.sh", &ctx)
         .context("Failed to render installation script")?;
@@ -98,6 +97,13 @@ pub async fn build_with_output(
         .append(&dockerfile_header, content.as_bytes())
         .await
         .context("Failed to append dockerfile to tarball")?;
+
+    let docker_ignore_header = make_header(".dockerignore", DOCKER_IGNORE.len() as u64, 0o644)
+        .context("Failed to create dockerignore header")?;
+    tarball
+        .append(&docker_ignore_header, DOCKER_IGNORE.as_bytes())
+        .await
+        .context("Failed to append .dockerignore to tarball")?;
 
     let install_header = make_header("install.sh", install_content.len() as u64, 0o644)
         .context("Failed to create install header")?;
