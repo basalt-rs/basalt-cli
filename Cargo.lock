@@ -182,32 +182,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "basalt"
+name = "basalt-bedrock"
 version = "1.0.0"
-dependencies = [
- "ansi_term",
- "anyhow",
- "bedrock",
- "bollard",
- "clap",
- "futures",
- "lazy_static",
- "local-ip-address",
- "tera",
- "tokio",
- "tokio-tar",
-]
-
-[[package]]
-name = "base64"
-version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "bedrock"
-version = "1.0.0"
-source = "git+http://github.com/basalt-rs/bedrock.git?tag=v1.0.0#49a275437bf1be58c0b108667c40fe75a6bb69ac"
+checksum = "698cd7e951b77d9ebda5f4427f1828275d5d91d767abe27f45a5a7bd2165cb99"
 dependencies = [
  "comemo",
  "ecow",
@@ -233,6 +211,29 @@ dependencies = [
  "typst-svg",
  "url",
 ]
+
+[[package]]
+name = "basalt-cli"
+version = "1.0.0"
+dependencies = [
+ "ansi_term",
+ "anyhow",
+ "basalt-bedrock",
+ "bollard",
+ "clap",
+ "futures",
+ "lazy_static",
+ "local-ip-address",
+ "tera",
+ "tokio",
+ "tokio-tar",
+]
+
+[[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "biblatex"

@@ -1,12 +1,28 @@
 [package]
-name = "basalt"
+name = "basalt-cli"
 version = "1.0.0"
 edition = "2021"
+description = "CLI for managing Basalt competitions and configurations"
+authors = ["Jack Branch", "funnyboy-roks <funnyboyroks@gmail.com>"]
+repository = "https://github.com/basalt-rs/basalt-cli"
+license = "GPL-3.0-only"
+keywords = ["basalt", "cli", "competition", "configuration", "pdf"]
+categories = [
+    "command-line-utilities",
+    "virtualization",
+    "development-tools::build-utils",
+    "config",
+]
+exclude = [".github"]
+
+[[bin]]
+name = "basalt"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
-bedrock = { git = "http://github.com/basalt-rs/bedrock.git", tag = "v1.0.0", features = [
+bedrock = { package = "basalt-bedrock", version = "1.0.0", features = [
     "tokio",
 ] }
 tokio = { version = "1.47.1", features = ["full"] }
