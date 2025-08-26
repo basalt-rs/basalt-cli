@@ -2,6 +2,18 @@
 name = "basalt-cli"
 version = "1.0.0"
 edition = "2021"
+description = "CLI for managing Basalt competitions and configurations"
+authors = ["Jack Branch", "funnyboy-roks <funnyboyroks@gmail.com>"]
+repository = "https://github.com/basalt-rs/basalt-cli"
+license = "GPLv3"
+keywords = ["basalt", "cli", "competition", "configuration", "pdf"]
+categories = [
+    "command-line-utilities",
+    "virtualization",
+    "development-tools::build-utils",
+    "configuration",
+]
+exclude = [".github"]
 
 [[bin]]
 name = "basalt"
