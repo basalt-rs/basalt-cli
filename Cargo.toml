@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive"] }
-bedrock = { git = "http://github.com/basalt-rs/bedrock.git", tag = "v1.0.0", features = [
+bedrock = { package = "basalt-bedrock", version = "1.0.0", features = [
     "tokio",
 ] }
 tokio = { version = "1.47.1", features = ["full"] }
