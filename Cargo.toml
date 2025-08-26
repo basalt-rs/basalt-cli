@@ -5,7 +5,7 @@ edition = "2021"
 description = "CLI for managing Basalt competitions and configurations"
 authors = ["Jack Branch", "funnyboy-roks <funnyboyroks@gmail.com>"]
 repository = "https://github.com/basalt-rs/basalt-cli"
-license = "GPLv3"
+license = "GPL-3.0-only"
 keywords = ["basalt", "cli", "competition", "configuration", "pdf"]
 categories = [
     "command-line-utilities",
