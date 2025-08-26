@@ -1,15 +1,19 @@
+use containers::{build_container_image, get_server_tag};
 use std::path::{Path, PathBuf};
+use tar_helpers::{append_event_handlers, make_base_init, make_base_install, make_header};
 
 use anyhow::Context;
-use bedrock::Config;
-use futures::StreamExt;
 use lazy_static::lazy_static;
-use tokio::{io::AsyncReadExt, task::JoinSet};
-use tokio_tar::{Builder, Header};
+use tokio::io::AsyncReadExt;
 
-const BASE_DOCKER_SRC: &str = include_str!("../data/basalt.Dockerfile");
-const INSTALL_SRC: &str = include_str!("../data/install.sh");
-const ENTRY_SRC: &str = include_str!("../data/entrypoint.sh");
+use crate::cli::ContainerBackend;
+
+mod containers;
+mod tar_helpers;
+
+const BASE_DOCKER_SRC: &str = include_str!("../../data/basalt.Dockerfile");
+const INSTALL_SRC: &str = include_str!("../../data/install.sh");
+const ENTRY_SRC: &str = include_str!("../../data/entrypoint.sh");
 const DOCKER_IGNORE: &str = "./Dockerfile\n./.dockerignore";
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -31,6 +35,8 @@ pub async fn build_with_output(
     output: &Option<PathBuf>,
     config_file: &Path,
     tag: Option<String>,
+    container_backend: ContainerBackend,
+    verbose: bool,
 ) -> anyhow::Result<()> {
     let mut file = tokio::fs::File::open(config_file)
         .await
@@ -135,134 +141,14 @@ pub async fn build_with_output(
                 .await
                 .context("Failed to write data")?;
         }
-        None => {
-            let docker = bollard::Docker::connect_with_local_defaults()
-                .context("Failed to connect to docker")?;
-            let tag = tag.unwrap_or(format!("bslt-{}", cfg.hash()));
-            let stream = docker.build_image(
-                bollard::image::BuildImageOptions {
-                    dockerfile: "Dockerfile",
-                    t: &tag,
-                    rm: true,
-                    ..Default::default()
-                },
-                None,
-                Some(out_data.into()),
-            );
-
-            // Process the stream
-            tokio::pin!(stream);
-            while let Some(item) = stream.next().await {
-                let msg = item.context("Failed to perform docker build")?;
-                if let Some(stream) = msg.stream {
-                    println!(
-                        "[BUILD] {}",
-                        stream.trim().replace("\n", " ").replace("\t", " ")
-                    );
-                }
-            }
-        }
-    };
-    Ok(())
-}
-
-fn make_base_install(cfg: &Config) -> String {
-    cfg.languages
-        .iter()
-        .map(|e| match e {
-            bedrock::language::Language::BuiltIn { language, version } => {
-                language.install_command(version).unwrap_or("").to_owned()
-            }
-            _ => "".into(),
-        })
-        .filter(|e| !e.is_empty())
-        .collect::<Vec<String>>()
-        .join("\n")
-        .trim()
-        .to_owned()
-}
-
-fn make_base_init(cfg: &Config) -> String {
-    cfg.languages
-        .iter()
-        .map(|e| match e {
-            bedrock::language::Language::BuiltIn { language, version } => {
-                language.init_command(version).unwrap_or("").to_owned()
-            }
-            _ => "".into(),
-        })
-        .filter(|e| !e.is_empty())
-        .collect::<Vec<String>>()
-        .join("\n")
-        .trim()
-        .to_owned()
-}
-
-fn make_header<P>(path: P, size: u64, mode: u32) -> anyhow::Result<Header>
-where
-    P: AsRef<Path>,
-{
-    let mut header = tokio_tar::Header::new_gnu();
-    header
-        .set_path(&path)
-        .with_context(|| format!("Failed to set {} tar header", path.as_ref().display()))?;
-    header.set_size(size);
-    header.set_mode(mode);
-    header.set_cksum();
-    Ok(header)
-}
-
-/// Based on the config, determine which tag to use
-fn get_server_tag(cfg: &Config) -> String {
-    let needs_scripting = !cfg.integrations.event_handlers.is_empty();
-    let needs_webhooks = !cfg.integrations.webhooks.is_empty();
-    let variant = if needs_scripting && needs_webhooks {
-        "full"
-    } else if needs_scripting {
-        "scripting"
-    } else if needs_webhooks {
-        "webhooks"
-    } else {
-        "minimal"
-    };
-    format!("{APP_VERSION}-{variant}")
-}
-
-async fn append_event_handlers(tb: &mut Builder<Vec<u8>>, cfg: Config) -> anyhow::Result<()> {
-    let mut set = JoinSet::new();
-
-    for handler_path in cfg.integrations.event_handlers {
-        set.spawn(async move {
-            let contents = tokio::fs::read_to_string(&handler_path)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to read script contents from {}",
-                        handler_path.display()
-                    )
-                })?;
-
-            Ok::<_, anyhow::Error>((handler_path, contents))
-        });
-    }
-
-    // Collect results (unordered)
-    let results = set
-        .join_all()
+        None => build_container_image(
+            out_data,
+            tag.unwrap_or_else(|| format!("bslt-{}", cfg.hash())),
+            container_backend,
+            verbose,
+        )
         .await
-        .into_iter()
-        .collect::<Result<Vec<(PathBuf, String)>, _>>()
-        .context("Failed to read scripts")?;
-
-    // Append sequentially (tarball writes must be ordered)
-    for (handler_path, contents) in results {
-        let script_header = make_header(&handler_path, contents.len() as u64, 0o644)
-            .context("Failed to create script header")?;
-
-        tb.append(&script_header, contents.as_bytes())
-            .await
-            .context("Failed to append script to tarball")?;
-    }
-
+        .context("Failed to build container image")?,
+    };
     Ok(())
 }

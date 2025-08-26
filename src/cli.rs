@@ -1,9 +1,15 @@
 use std::{net::Ipv4Addr, path::PathBuf};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 fn default_config() -> &'static std::ffi::OsStr {
     std::ffi::OsStr::new("basalt.toml")
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
+pub enum ContainerBackend {
+    Docker,
+    Podman,
 }
 
 #[derive(Clone, Debug, Subcommand, PartialEq, Eq, Hash)]
@@ -32,6 +38,11 @@ pub enum SubCmd {
         output: Option<PathBuf>,
         /// The configuration file to build
         config_file: PathBuf,
+        /// The backend to use to build container
+        #[arg(long, value_enum, default_value_t = ContainerBackend::Docker)]
+        container_backend: ContainerBackend,
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// Build the docker file based on a given configuration file and then run it using docker.
     Run {
