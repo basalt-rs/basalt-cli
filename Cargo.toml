@@ -11,7 +11,7 @@ categories = [
     "command-line-utilities",
     "virtualization",
     "development-tools::build-utils",
-    "configuration",
+    "config",
 ]
 exclude = [".github"]
 
