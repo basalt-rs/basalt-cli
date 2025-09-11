@@ -1,6 +1,9 @@
+mod auth;
 mod build;
 mod cli;
 mod init;
+mod utils;
+
 use std::{ffi::OsStr, path::Path, process};
 
 use ansi_term::Colour::{Blue, Green};
@@ -53,6 +56,7 @@ async fn main() -> anyhow::Result<()> {
             output,
             config_file,
         } => build_with_output(&output, &config_file, tag).await?,
+        cli::SubCmd::Auth { subcommand } => auth::handle(subcommand).await?,
         cli::SubCmd::Run { .. } => {
             todo!();
         }
