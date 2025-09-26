@@ -36,7 +36,6 @@ pub async fn build_with_output(
     config_file: &Path,
     tag: Option<String>,
     container_backend: ContainerBackend,
-    verbose: bool,
 ) -> anyhow::Result<()> {
     let mut file = tokio::fs::File::open(config_file)
         .await
@@ -145,7 +144,6 @@ pub async fn build_with_output(
             out_data,
             tag.unwrap_or_else(|| format!("bslt-{}", cfg.hash())),
             container_backend,
-            verbose,
         )
         .await
         .context("Failed to build container image")?,

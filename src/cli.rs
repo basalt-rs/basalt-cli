@@ -41,8 +41,6 @@ pub enum SubCmd {
         /// The backend to use to build container
         #[arg(long, value_enum, default_value_t = ContainerBackend::Docker)]
         container_backend: ContainerBackend,
-        #[arg(short, long)]
-        verbose: bool,
     },
     /// Build the docker file based on a given configuration file and then run it using docker.
     Run {

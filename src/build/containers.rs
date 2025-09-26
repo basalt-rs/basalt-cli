@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use tempdir::TempDir;
 use tokio_stream::StreamExt;
 
@@ -12,11 +14,14 @@ use crate::cli::ContainerBackend;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+lazy_static! {
+    static ref ANSI_REGEX: Regex = Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").unwrap();
+}
+
 pub async fn build_container_image(
     tar_bytes: Vec<u8>,
     tag: String,
     container_backend: ContainerBackend,
-    verbose: bool,
 ) -> anyhow::Result<()> {
     match container_backend {
         ContainerBackend::Docker => {
@@ -39,11 +44,14 @@ pub async fn build_container_image(
             while let Some(item) = stream.next().await {
                 let msg = item.context("Failed to perform docker build")?;
                 if let Some(stream) = msg.stream {
-                    println!(
-                        "{} {}",
-                        prefix,
-                        stream.trim().replace("\n", " ").replace("\t", " ")
-                    );
+                    let clean = stream.replace('\r', ""); // strip carriage returns from progress bars
+                    for line in clean.split('\n') {
+                        // remove trailing \n but keep empty lines
+                        let trimmed = line.trim_end_matches('\n');
+                        if !is_only_formatting_or_whitespace(trimmed) {
+                            println!("{} {}", prefix, trimmed);
+                        }
+                    }
                 }
             }
             Ok(())
@@ -80,13 +88,11 @@ pub async fn build_container_image(
                         .await
                         .context("Failed to write to STDOUT")?;
                 }
-                if verbose {
-                    if let Some(err) = item.stderr() {
-                        stderr
-                            .write_all(format!("{} {}\n", prefix, err).as_bytes())
-                            .await
-                            .context("Failed to write to STDERR")?;
-                    }
+                if let Some(err) = item.stderr() {
+                    stderr
+                        .write_all(format!("{} {}\n", prefix, err).as_bytes())
+                        .await
+                        .context("Failed to write to STDERR")?;
                 }
             }
             Ok(())
@@ -116,4 +122,21 @@ pub async fn ensure_podman_accessible() -> anyhow::Result<()> {
         .await
         .context("Failed to spawn Podman command")?;
     Ok(())
+}
+
+fn strip_ansi(s: &str) -> String {
+    // Regex for ANSI escape sequences
+    ANSI_REGEX.replace_all(s, "").into_owned()
+}
+
+fn is_only_formatting_or_whitespace(s: &str) -> bool {
+    let stripped = strip_ansi(s);
+    stripped.chars().all(|c| {
+        c.is_whitespace()
+            || c.is_control()
+            || matches!(c, '\u{200B}'..='\u{200F}'
+                   | '\u{202A}'..='\u{202E}'
+                   | '\u{2060}'..='\u{206F}'
+                   | '\u{FEFF}')
+    })
 }
