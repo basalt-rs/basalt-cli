@@ -14,6 +14,8 @@ use clap::Parser;
 use cli::Cli;
 use tokio::fs::File;
 
+use crate::utils::make_game_code;
+
 pub async fn verify(config_file: &Path) -> anyhow::Result<()> {
     let mut file = File::open(config_file).await?;
     let res = bedrock::Config::read_async(
@@ -33,15 +35,6 @@ pub async fn verify(config_file: &Path) -> anyhow::Result<()> {
 
     // TODO: More detailed verification
     Ok(())
-}
-
-fn make_game_code<const N: usize>(bytes: [u8; N]) -> String {
-    let mut s = String::with_capacity(2 * N);
-    for b in bytes {
-        s.push(char::from((b >> 4) + b'a'));
-        s.push(char::from((b & 0xf) + b'a'));
-    }
-    s
 }
 
 #[tokio::main]

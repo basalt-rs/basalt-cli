@@ -11,7 +11,7 @@ pub enum SubCmd {
         #[arg(short, long)]
         code: Option<String>,
         #[arg(long)]
-        host: Option<Ipv4Addr>,
+        addr: Option<String>,
         #[arg(short, long)]
         username: Option<String>,
         #[arg(short, long)]
@@ -34,10 +34,10 @@ pub async fn handle(subcommand: SubCmd) -> anyhow::Result<()> {
     match subcommand {
         SubCmd::Login {
             code,
-            host,
+            addr,
             username,
             password,
-        } => login::handle(code, host, username, password).await,
+        } => login::handle(code, addr, username, password).await,
     }
     .context("Failed to handle auth subcommand")
 }
