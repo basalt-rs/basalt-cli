@@ -2,6 +2,8 @@ use std::{net::Ipv4Addr, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
+use crate::auth;
+
 fn default_config() -> &'static std::ffi::OsStr {
     std::ffi::OsStr::new("basalt.toml")
 }
@@ -77,6 +79,10 @@ pub enum SubCmd {
         /// IPv4 for which to generate the code.  If not specified, attempts to automatically
         /// determine the IP address
         ip: Option<Ipv4Addr>,
+    },
+    Auth {
+        #[command(subcommand)]
+        subcommand: auth::SubCmd,
     },
 }
 
