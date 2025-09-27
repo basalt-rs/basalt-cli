@@ -52,7 +52,8 @@ async fn main() -> anyhow::Result<()> {
             tag,
             output,
             config_file,
-        } => build_with_output(&output, &config_file, tag).await?,
+            container_backend,
+        } => build_with_output(&output, &config_file, tag, container_backend).await?,
         cli::SubCmd::Run { .. } => {
             todo!();
         }
