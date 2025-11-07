@@ -35,22 +35,6 @@
         pkg-config
       ];
 
-      # Set the RUST_SRC_PATH for the build if needed by your project
-      # env = {
-      #   RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
-      # };
-
-      # You can specify additional environment variables or commands for the build process
-      # For example, if you need to pass features to cargo:
-      # cargoBuildFlags = [ "--features" "my-feature" ];
-
-      # Check phase (optional, but good practice for ensuring correctness)
-      # doCheck = true; # Uncomment to run tests during the build
-
-      # If your binary isn't named `basalt-cli`, you might need to adjust this
-      # postInstall = ''
-      #   mv $out/bin/my-other-binary $out/bin/basalt-cli
-      # '';
       cargoBin = "basalt";
 
       meta = with pkgs.lib; {
