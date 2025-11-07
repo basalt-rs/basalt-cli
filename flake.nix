@@ -13,7 +13,7 @@
 
     devShells.default = pkgs.mkShell {
       buildInputs = with pkgs; [
-        cargo rustc rustfmt clippy rust-analyzer glibc cargo-dist
+        cargo rustc rustfmt clippy rust-analyzer glibc cargo-dist openssl
       ];
       nativeBuildInputs = [ pkgs.pkg-config ];
       env.RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
