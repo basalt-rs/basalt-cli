@@ -19,7 +19,7 @@
       env.RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
     };
 
-    packages.default = pkgs.rustPlatform.buildRustPackage rec {
+    packages.basalt-cli = pkgs.rustPlatform.buildRustPackage rec {
       pname = "basalt-cli";
       version = "1.0.0";
       src = self;
@@ -45,5 +45,6 @@
         platforms = platforms.all; # Or specific platforms your project supports
       };
     };
+    packages.default = self.packages.${system}.basalt-cli;
   });
 }
