@@ -15,6 +15,12 @@ categories = [
 ]
 exclude = [".github"]
 
+[package.metadata.wix]
+upgrade-guid = "33BD64EA-20DC-4A1B-AAFC-F7B46D04E651"
+path-guid = "D716F485-26F4-43AB-ABC3-13BFA0263C36"
+license = false
+eula = false
+
 [[bin]]
 name = "basalt"
 path = "src/main.rs"
@@ -38,3 +44,8 @@ colored = "3.0.0"
 tokio-stream = "0.1.17"
 tempdir = "0.3.7"
 regex = "1.11.3"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
