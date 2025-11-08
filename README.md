@@ -118,3 +118,30 @@ as it would ordinarily by default is a bit more secure, so we lose one of
 the networking security layers built around Basalt's sandbox.
 
 Of the three solutions, we recommend this one last.
+
+## Development
+
+### Nix
+
+If you have Nix and flakes enabled, you can use the dev shell to configure
+the environment for building.
+
+```sh
+nix develop
+```
+
+If you have [direnv](https://direnv.net) installed, you can simply say
+`direnv allow` to allow direnv to use the dev shell automatically.
+
+The `.envrc` file is not meant to hold actual secrets hence why it's
+committed to VCS. If you need to have actual secrets for one reason or another,
+`.envrc` can be updated to call the `dotenv` directive and read an actual
+`.env` file which has real secrets.
+
+### Everything else
+
+Consult the `rust-toolchain.toml` file and set up the Rust toolchain. You will
+also need `openssl` development libraries installed. If you're on Linux, there
+is a very good chance you already have it.
+
+You'll also need either Docker or Podman for building competition images.
