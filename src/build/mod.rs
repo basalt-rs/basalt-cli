@@ -1,4 +1,4 @@
-use containers::{build_container_image, get_server_tag};
+use containers::build_container_image;
 use std::path::{Path, PathBuf};
 use tar_helpers::{append_event_handlers, make_base_init, make_base_install, make_header};
 
@@ -16,7 +16,7 @@ const INSTALL_SRC: &str = include_str!("../../data/install.sh");
 const ENTRY_SRC: &str = include_str!("../../data/entrypoint.sh");
 const DOCKER_IGNORE: &str = "./Dockerfile\n./.dockerignore";
 
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_TAG: &str = "main";
 
 lazy_static! {
     static ref tmpl: tera::Tera = {
@@ -55,11 +55,11 @@ pub async fn build_with_output(
     let mut ctx = tera::Context::new();
     ctx.insert(
         "server_tag",
-        &std::env::var("BASALT_SERVER_TAG").unwrap_or_else(|_| get_server_tag(&cfg)),
+        &std::env::var("BASALT_SERVER_TAG").unwrap_or(DEFAULT_TAG.to_owned()),
     );
     ctx.insert(
         "web_tag",
-        &std::env::var("BASALT_WEB_TAG").unwrap_or(APP_VERSION.to_owned()),
+        &std::env::var("BASALT_WEB_TAG").unwrap_or(DEFAULT_TAG.to_owned()),
     );
     ctx.insert("base_install", &make_base_install(&cfg));
     ctx.insert("base_init", &make_base_init(&cfg));

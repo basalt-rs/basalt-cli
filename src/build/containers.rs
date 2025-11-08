@@ -4,15 +4,12 @@ use tempdir::TempDir;
 use tokio_stream::StreamExt;
 
 use anyhow::Context;
-use bedrock::Config;
 use colored::Colorize;
 use tokio::{io::AsyncWriteExt, process::Command};
 use tokio_process_stream::ProcessLineStream;
 use tokio_tar::Archive;
 
 use crate::cli::ContainerBackend;
-
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {
     static ref ANSI_REGEX: Regex = Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").unwrap();
@@ -98,22 +95,6 @@ pub async fn build_container_image(
             Ok(())
         }
     }
-}
-
-/// Based on the config, determine which tag to use
-pub fn get_server_tag(cfg: &Config) -> String {
-    let needs_scripting = !cfg.integrations.event_handlers.is_empty();
-    let needs_webhooks = !cfg.integrations.webhooks.is_empty();
-    let variant = if needs_scripting && needs_webhooks {
-        "full"
-    } else if needs_scripting {
-        "scripting"
-    } else if needs_webhooks {
-        "webhooks"
-    } else {
-        "minimal"
-    };
-    format!("{APP_VERSION}-{variant}")
 }
 
 pub async fn ensure_podman_accessible() -> anyhow::Result<()> {
