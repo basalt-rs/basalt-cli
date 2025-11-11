@@ -75,6 +75,18 @@ pub async fn build_with_output(
     }
     ctx.insert("web_client", &cfg.web_client);
 
+    let mut exec_command = vec!["basalt-server", "run", "--port", "9090"];
+
+    if cfg.web_client {
+        let web_dir = "/opt/basalt/web/";
+        exec_command.extend_from_slice(&["--web-dir", web_dir]);
+        ctx.insert("web_dir", web_dir);
+    }
+
+    exec_command.push("config.toml");
+
+    ctx.insert("exec_command", &format!("{:?}", exec_command));
+
     let install_content = tmpl
         .render("install.sh", &ctx)
         .context("Failed to render installation script")?;

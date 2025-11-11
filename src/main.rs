@@ -3,13 +3,18 @@ mod cli;
 mod init;
 use std::{ffi::OsStr, path::Path, process};
 
-use ansi_term::Colour::{Blue, Green};
+use ansi_term::{
+    Colour::{Blue, Green, Red, Yellow},
+    Style,
+};
 use anyhow::Context;
-use bedrock::ConfigReadError;
+use bedrock::{render::typst::PdfGenerationError, Config, ConfigReadError};
 use build::build_with_output;
 use clap::Parser;
 use cli::Cli;
-use tokio::fs::File;
+use tokio::{fs::File, io::BufWriter};
+
+use crate::cli::Template;
 
 pub async fn verify(config_file: &Path) -> anyhow::Result<()> {
     let mut file = File::open(config_file).await?;
@@ -39,6 +44,64 @@ fn make_game_code<const N: usize>(bytes: [u8; N]) -> String {
         s.push(char::from((b & 0xf) + b'a'));
     }
     s
+}
+
+macro_rules! error {
+    ($format: literal $($tt: tt)*) => {
+        eprintln!(
+            concat!("{}: ", $format),
+            Red.bold().paint("Error")
+            $($tt)*
+        )
+    }
+}
+
+macro_rules! warning {
+    ($format: literal $($tt: tt)*) => {
+        eprintln!(
+            concat!("{}: ", $format),
+            Yellow.bold().paint("Warning")
+            $($tt)*
+        )
+    }
+}
+
+macro_rules! success {
+    ($format: literal $($tt: tt)*) => {
+        eprintln!(
+            concat!("{}: ", $format),
+            Green.bold().paint("Success")
+            $($tt)*
+        )
+    }
+}
+
+async fn render_pdf(config: Config, template: Template, output: &Path) -> anyhow::Result<()> {
+    let mut file = BufWriter::new(
+        File::create(&output)
+            .await
+            .with_context(|| format!("opening for writing: {}", output.display()))?,
+    );
+    let res = config.generate_pdf_async(&mut file, template).await;
+
+    match res {
+        Ok(_) => {}
+        Err(PdfGenerationError::MissingTypstCommand) => {
+            error!(
+                "The 'typst' command must be installed and in your PATH in order to render a PDF."
+            );
+            return Ok(());
+        }
+        Err(PdfGenerationError::TypstError) => {
+            // Typst has already errored, so we don't need to
+            return Ok(());
+        }
+        Err(PdfGenerationError::IoError(e)) => {
+            Err(e).context("generating pdf")?;
+        }
+    }
+    success!("Rendered PDF to {}", output.display());
+    Ok(())
 }
 
 #[tokio::main]
@@ -71,35 +134,35 @@ async fn main() -> anyhow::Result<()> {
             )
             .await
             .context("loading config")?;
-            let template = if let Some(template) = template {
-                Some(
-                    tokio::fs::read_to_string(template)
-                        .await
-                        .context("reading config file")?,
-                )
-            } else {
-                None
-            };
-
             let output = output
-                .unwrap_or(
+                .unwrap_or_else(|| {
                     config_file
                         .file_name()
                         .expect("This would have failed when opening the file")
-                        .into(),
-                )
+                        .into()
+                })
                 .with_extension("pdf");
-            let pdf = config.render_pdf(template).context("creating pdf")?;
-            tokio::fs::write(&output, pdf)
-                .await
-                .with_context(|| format!("saving pdf to {}", output.display()))?;
-            println!("Rendered PDF to {}", output.display());
+            render_pdf(config, template, &output).await?;
         }
         cli::SubCmd::RenderLogins {
             output,
             config_file,
             template,
         } => {
+            warning!("The render-logins command is deprecated and scheduled for removal.");
+            eprintln!(
+                "         Use {}",
+                Style::new().bold().paint(format!(
+                    "{} render --template {}",
+                    std::env::args().next().unwrap(),
+                    if template == Template::Logins {
+                        "logins"
+                    } else {
+                        "<template>"
+                    }
+                )),
+            );
+
             let mut file = File::open(&config_file)
                 .await
                 .context("opening config file")?;
@@ -109,34 +172,15 @@ async fn main() -> anyhow::Result<()> {
             )
             .await
             .context("loading config")?;
-            let template = if let Some(template) = template {
-                Some(
-                    tokio::fs::read_to_string(template)
-                        .await
-                        .context("reading config file")?,
-                )
-            } else {
-                None
-            };
-
             let output = output
-                .unwrap_or(
-                    format!(
-                        "{}-logins",
-                        config_file
-                            .with_extension("")
-                            .file_name()
-                            .expect("This would have failed when opening the file")
-                            .to_string_lossy()
-                    )
-                    .into(),
-                )
+                .unwrap_or_else(|| {
+                    config_file
+                        .file_name()
+                        .expect("This would have failed when opening the file")
+                        .into()
+                })
                 .with_extension("pdf");
-            let pdf = config.render_login_pdf(template).context("creating pdf")?;
-            tokio::fs::write(&output, pdf)
-                .await
-                .with_context(|| format!("saving pdf to {}", output.display()))?;
-            println!("Rendered PDF to {}", output.display());
+            render_pdf(config, template, &output).await?;
         }
         cli::SubCmd::GameCode { config, ip, port } => {
             let ip = if let Some(ip) = ip {

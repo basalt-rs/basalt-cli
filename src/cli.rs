@@ -1,6 +1,12 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::{
+    net::Ipv4Addr,
+    path::{Path, PathBuf},
+};
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{
+    builder::{PathBufValueParser, TypedValueParser, ValueParser},
+    Parser, Subcommand, ValueEnum,
+};
 
 fn default_config() -> &'static std::ffi::OsStr {
     std::ffi::OsStr::new("basalt.toml")
@@ -10,6 +16,41 @@ fn default_config() -> &'static std::ffi::OsStr {
 pub enum ContainerBackend {
     Docker,
     Podman,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Template {
+    Packet,
+    Logins,
+    Other(String),
+}
+
+impl AsRef<str> for Template {
+    fn as_ref(&self) -> &str {
+        match self {
+            Template::Packet => bedrock::render::typst::PACKET_TEMPLATE,
+            Template::Logins => bedrock::render::typst::PACKET_TEMPLATE,
+            Template::Other(s) => s,
+        }
+    }
+}
+
+struct TemplateValueParser;
+
+impl From<TemplateValueParser> for ValueParser {
+    fn from(_: TemplateValueParser) -> Self {
+        ValueParser::new(PathBufValueParser::new().try_map(|path| {
+            if path == Path::new("packet") {
+                Ok(Template::Packet)
+            } else if path == Path::new("logins") {
+                Ok(Template::Logins)
+            } else {
+                std::fs::read_to_string(&path)
+                    .map(Template::Other)
+                    .map_err(|e| format!("{}", e))
+            }
+        }))
+    }
 }
 
 #[derive(Clone, Debug, Subcommand, PartialEq, Eq, Hash)]
@@ -53,10 +94,15 @@ pub enum SubCmd {
         /// config file used
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Path to a template to use, if not specified uses the default template.  Most of the
-        /// time, this is not necessary.
-        #[arg(short, long)]
-        template: Option<PathBuf>,
+        /// Template to use while rendering, may be 'packet', 'logins', or a path to a typst
+        /// template.
+        #[arg(
+            short,
+            long,
+            default_value = "logins",
+            value_parser = TemplateValueParser
+        )]
+        template: Template,
         /// Config file from which to generate the PDF
         #[arg(default_value = default_config())]
         config_file: PathBuf,
@@ -67,10 +113,10 @@ pub enum SubCmd {
         /// config file used
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Path to a template to use, if not specified uses the default template.  Most of the
-        /// time, this is not necessary.
-        #[arg(short, long)]
-        template: Option<PathBuf>,
+        /// Template to use while rendering, may be 'packet', 'logins', or a path to a typst
+        /// template.
+        #[arg(short, long, default_value = "packet", value_parser = TemplateValueParser)]
+        template: Template,
         /// Config file from which to generate the PDF
         #[arg(default_value = default_config())]
         config_file: PathBuf,
